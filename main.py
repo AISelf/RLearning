@@ -13,8 +13,8 @@ if __name__ == '__main__':
   reward = testbed.do_action(0)
   logger.info("reward %s", reward)
 
-  agent = ActionValueAgent(env=testbed, epsilon=0.3)
-  for i in range(0, 8000000):
+  agent = ActionValueAgent(env=testbed, epsilon=0.1)
+  for i in range(0, 80000):
     agent.step()
 
   agent.done()
