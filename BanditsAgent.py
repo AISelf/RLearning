@@ -9,16 +9,19 @@ class ActionValueAgent(object):
     self.epsilon = epsilon
     self.num_actions = num_actions
     self.select_num = np.zeros(self.num_actions)
-    self.q_values = np.random.normal(0, 1, self.num_actions)
-    #self.q_values = np.zeros(self.num_actions)
+    #self.q_values = np.random.normal(0, 1, self.num_actions)
+    self.q_values = np.zeros(self.num_actions)
     self.total_rewards = 0
-
+    self.average_rewards = []
+    self.optimal_action = []
     logger.info(self.q_values)
 
   def train(self, action, rewards):
     self.select_num[action] += 1
     self.q_values[action] = self.q_values[action] + (rewards - self.q_values[action]) / self.select_num[action]
     self.total_rewards += rewards
+    self.average_rewards.append(self.total_rewards / np.sum(self.select_num))
+    self.optimal_action.append(self.select_num[self.env.optimal_action()] / np.sum(self.select_num))
 
   def step(self):
     action = random.randint(0, self.num_actions - 1)
