@@ -25,25 +25,25 @@ if __name__ == '__main__':
     # The algorithms require a vectorized environment to run
     env = DummyVecEnv([lambda: SimpleStockTrading(df)])
 
-    train = True
+    train = False
     if train:
         # Instantiate the agent
-        model = PPO2('MlpPolicy', env, verbose=1)
+        model = DQN('MlpPolicy', env, learning_rate=1e-3, prioritized_replay=True, verbose=1)
         # Train the agent
         model.learn(total_timesteps=int(2e4))
         # Save the agent
-        model.save("ppo2_stock")
+        model.save("dqn_stock")
         del model  # delete trained model to demonstrate loading
 
     # Load the trained agent
-    model = PPO2.load("ppo2_stock")
+    model = DQN.load("dqn_stock")
 
     # Evaluate the agent
     # mean_reward, n_steps = evaluate_policy(model, environment, n_eval_episodes=10)
 
     # Enjoy trained agent
     obs = env.reset()
-    for i in range(2000):
+    for i in range(int(2e4)):
         action, _states = model.predict(obs)
         obs, rewards, dones, info = env.step(action)
         env.render()

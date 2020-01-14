@@ -4,6 +4,7 @@ import gym
 from gym import spaces
 import pandas as pd
 import numpy as np
+from sklearn.preprocessing import maxabs_scale
 
 MAX_ACCOUNT_BALANCE = 2147483647
 MAX_NUM_SHARES = 2147483647
@@ -14,37 +15,51 @@ MAX_STEPS = 20000
 INITIAL_ACCOUNT_BALANCE = 10000
 
 
-class StockTradingEnv(gym.Env):
+class SimpleStockTrading(gym.Env):
     """A stock trading environment for OpenAI gym"""
     metadata = {'render.modes': ['human']}
 
     def __init__(self, df):
-        super(StockTradingEnv, self).__init__()
+        super(SimpleStockTrading, self).__init__()
 
         self.df = df
         self.reward_range = (0, MAX_ACCOUNT_BALANCE)
 
         # Actions of the format Buy x%, Sell x%, Hold, etc.
-        self.action_space = spaces.Box(
-            low=np.array([0, 0]), high=np.array([3, 1]), dtype=np.float16)
+        '''
+        Actions: -1 (Sell All), 0(Hold), 1(Buy)
+        '''
+        self.action_space = spaces.discrete.Discrete(3)
 
+        self.obs_length = 6
         # Prices contains the OHCL values for the last five prices
         self.observation_space = spaces.Box(
-            low=0, high=1, shape=(6, 6), dtype=np.float16)
+            low=0, high=1, shape=(self.obs_length, self.obs_length), dtype=np.float16)
+
+        self.data_open = maxabs_scale(df.loc[:, 'Open'])
+        self.data_high = maxabs_scale(df.loc[:, 'High'])
+        self.data_low = maxabs_scale(df.loc[:, 'Low'])
+        self.data_close = maxabs_scale(df.loc[:, 'Close'])
+        self.data_volume = maxabs_scale(df.loc[:, 'Volume'])
+
+        self.current_step = 0
+        self.balance = INITIAL_ACCOUNT_BALANCE
+        self.net_worth = INITIAL_ACCOUNT_BALANCE
+        self.max_net_worth = INITIAL_ACCOUNT_BALANCE
+        self.shares_held = 0
+        self.cost_basis = 0
+        self.total_shares_sold = 0
+        self.total_sales_value = 0
+
 
     def _next_observation(self):
         # Get the stock data points for the last 5 days and scale to between 0-1
         frame = np.array([
-            self.df.loc[self.current_step: self.current_step +
-                        5, 'Open'].values / MAX_SHARE_PRICE,
-            self.df.loc[self.current_step: self.current_step +
-                        5, 'High'].values / MAX_SHARE_PRICE,
-            self.df.loc[self.current_step: self.current_step +
-                        5, 'Low'].values / MAX_SHARE_PRICE,
-            self.df.loc[self.current_step: self.current_step +
-                        5, 'Close'].values / MAX_SHARE_PRICE,
-            self.df.loc[self.current_step: self.current_step +
-                        5, 'Volume'].values / MAX_NUM_SHARES,
+            self.data_open[self.current_step: self.current_step + self.obs_length],
+            self.data_high[self.current_step: self.current_step + self.obs_length],
+            self.data_low[self.current_step: self.current_step + self.obs_length],
+            self.data_close[self.current_step: self.current_step + self.obs_length],
+            self.data_volume[self.current_step: self.current_step + self.obs_length]
         ])
 
         # Append additional data and scale each value to between 0-1
@@ -64,8 +79,9 @@ class StockTradingEnv(gym.Env):
         current_price = random.uniform(
             self.df.loc[self.current_step, "Open"], self.df.loc[self.current_step, "Close"])
 
-        action_type = action[0]
-        amount = action[1]
+        action_type = action
+
+        amount = 1
 
         if action_type < 1:
             # Buy amount % of balance in shares
@@ -124,8 +140,7 @@ class StockTradingEnv(gym.Env):
         self.total_sales_value = 0
 
         # Set the current step to a random point within the data frame
-        self.current_step = random.randint(
-            0, len(self.df.loc[:, 'Open'].values) - 6)
+        self.current_step = 0 #random.randint(0, len(self.df.loc[:, 'Open'].values) - 6)
 
         return self._next_observation()
 
@@ -133,8 +148,8 @@ class StockTradingEnv(gym.Env):
         # Render the environment to the screen
         profit = self.net_worth - INITIAL_ACCOUNT_BALANCE
 
-        print(f'Step: {self.current_step}')
-        print(f'Balance: {self.balance}')
+        print(F'Step: {self.current_step}')
+        print(F'Balance: {self.balance}')
         print(
             f'Shares held: {self.shares_held} (Total sold: {self.total_shares_sold})')
         print(
@@ -142,3 +157,4 @@ class StockTradingEnv(gym.Env):
         print(
             f'Net worth: {self.net_worth} (Max net worth: {self.max_net_worth})')
         print(f'Profit: {profit}')
+        print("-"*100)
